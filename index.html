@@ -1,0 +1,120 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sean's Fantasy Dashboard</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--line:#30363d;--tx:#e6edf3;--mut:#8b949e;--acc:#58a6ff;--red:#f85149;--org:#d29922;--grn:#3fb950;--pur:#a371f7}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0d1117ee;backdrop-filter:blur(6px);z-index:5}
+h1{font-size:18px;margin:0}h2{font-size:15px;margin:0 0 10px}h3{font-size:13px;margin:12px 0 6px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+select,button{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
+main{max-width:1300px;margin:auto;padding:16px;display:grid;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button.on{background:var(--acc);color:#000;border-color:var(--acc)}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+table{width:100%;border-collapse:collapse}td,th{padding:5px 4px;border-bottom:1px solid #21262d;text-align:left;vertical-align:top}th{color:var(--mut);font-weight:500;font-size:12px}
+.pos{display:inline-block;min-width:34px;text-align:center;border-radius:5px;font-size:11px;font-weight:700;padding:1px 4px}
+.QB{background:#ff2a6d33;color:#ff6b9a}.RB{background:#00ceb833;color:#3ee6d2}.WR{background:#58a6ff33;color:#79b8ff}.TE{background:#ffae5833;color:#ffb46b}.K{background:#a371f733;color:#c39bff}.DEF{background:#8b949e33;color:#c9d1d9}.FLEX,.SUPER_FLEX,.REC_FLEX,.WRRB_FLEX{background:#3fb95033;color:#56d364}.IDP,.DL,.LB,.DB,.IDP_FLEX{background:#d2992233;color:#e3b341}
+.b{display:inline-block;border-radius:999px;padding:0 7px;font-size:11px;font-weight:600;margin-left:4px}
+.out{background:#f8514933;color:var(--red)}.q{background:#d2992233;color:var(--org)}.bye{background:#a371f733;color:var(--pur)}.empty{background:#f8514933;color:var(--red)}
+.mut{color:var(--mut)}.score{display:flex;justify-content:space-between;align-items:center;font-size:22px;font-weight:700;gap:10px}.score small{display:block;font-size:12px;font-weight:400;color:var(--mut)}
+.win{color:var(--grn)}.lose{color:var(--red)}ul{margin:0;padding-left:18px}li{margin:3px 0}
+.lg{cursor:pointer}.lg:hover{border-color:var(--acc)}#status{color:var(--mut);font-size:12px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}td,th{font-size:12px}header{padding:10px}}
+</style></head><body>
+<header><h1>🏈 Sean's Fantasy Dashboard</h1><div style="display:flex;gap:8px;align-items:center"><label class="mut">Week <select id="wk"></select></label><button id="refresh">Refresh</button><span id="status">Loading…</span></div></header>
+<main>
+<section class="card"><h2>⚠️ Needs attention</h2><div id="attn" class="mut">Loading…</div></section>
+<section class="grid" id="lgcards"></section>
+<nav class="tabs" id="tabs"></nav>
+<section id="detail"></section>
+<section class="card"><h2>🎲 Vegas lines</h2><div id="vegas"></div></section>
+</main>
+<!-- Static odds data. Edit/add weeks here. Spread is for the listed favorite. -->
+<script id="vegas-data" type="application/json">
+{"6":{"source":"VegasInsider","url":"https://www.vegasinsider.com/nfl/nfl-week-6-odds-2026","props":null,"games":[
+{"fav":"SEA","dog":"DEN","spread":-3,"total":40.5,"home":"DEN"},
+{"fav":"JAX","dog":"HOU","spread":-3,"total":42.5,"home":"JAX"},
+{"fav":"NE","dog":"NYJ","spread":-7,"total":43.5,"home":"NE"},
+{"fav":"PIT","dog":"TB","spread":-3,"total":40.5,"home":"TB"},
+{"fav":"BAL","dog":"CLE","spread":-4.5,"total":40.5,"home":"CLE"},
+{"fav":"CHI","dog":"ATL","spread":-3,"total":48.5,"home":"ATL"},
+{"fav":"IND","dog":"TEN","spread":-7,"total":44.5,"home":"IND"},
+{"fav":"PHI","dog":"CAR","spread":-1.5,"total":41.5,"home":"PHI"},
+{"fav":"NO","dog":"NYG","spread":-1.5,"total":45.5,"home":"NYG"},
+{"fav":"LAR","dog":"ARI","spread":-12.5,"total":52.5,"home":"LAR"},
+{"fav":"BUF","dog":"LV","spread":-6,"total":52.5,"home":"LV"},
+{"fav":"KC","dog":"LAC","spread":-8.5,"total":42.5,"home":"KC"},
+{"fav":"GB","dog":"DAL","spread":-1.5,"total":52.5,"home":"GB"},
+{"fav":"SF","dog":"WAS","spread":-7.5,"total":50.5,"home":"SF"}]}}
+</script>
+<script>
+const API='https://api.sleeper.app/v1',USER='784583791074205696';
+// Bye weeks by week number. Teams absent from a week's odds list are also treated as bye when odds exist.
+const BYES={6:['CIN','DET','MIA','MIN']};
+const VEGAS=JSON.parse(document.getElementById('vegas-data').textContent);
+const $=s=>document.querySelector(s),j=u=>fetch(API+u).then(r=>{if(!r.ok)throw new Error(u+' '+r.status);return r.json()});
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S={players:{},leagues:[],state:null,week:null,sel:0,data:{}};
+async function players(){const k='sleeperPlayers',t=+localStorage.getItem(k+'_t');
+ if(t&&Date.now()-t<864e5){try{return JSON.parse(localStorage.getItem(k))}catch(e){}}
+ const all=await j('/players/nfl'),slim={};
+ for(const[id,p]of Object.entries(all))slim[id]={n:p.full_name||((p.first_name||'')+' '+(p.last_name||'')).trim()||id,pos:p.position,t:p.team,inj:p.injury_status,b:p.injury_body_part};
+ try{localStorage.setItem(k,JSON.stringify(slim));localStorage.setItem(k+'_t',Date.now())}catch(e){console.warn('cache fail',e)}
+ return slim}
+function P(id){if(!id||id==='0')return null;const p=S.players[id];if(p)return{id,...p};if(isNaN(id))return{id,n:id+' D/ST',pos:'DEF',t:id};return{id,n:'#'+id,pos:'?'}}
+function byes(w){const b=new Set(BYES[w]||[]);return b}
+function bad(p,w){if(!p)return{cls:'empty',txt:'EMPTY'};const i=(p.inj||'').toLowerCase();
+ if(['out','ir','pup','sus','doubtful','na'].includes(i)||i.startsWith('ir'))return{cls:'out',txt:p.inj};
+ if(byes(w).has(p.t))return{cls:'bye',txt:'BYE'};if(i==='questionable')return{cls:'q',txt:'Q'};return null}
+function badges(p,w){let h='';if(!p)return'<span class="b empty">EMPTY</span>';const i=p.inj;
+ if(i)h+=`<span class="b ${/quest/i.test(i)?'q':'out'}" title="${esc(p.b||'')}">${esc(i)}</span>`;if(byes(w).has(p.t))h+='<span class="b bye">BYE</span>';return h}
+function gameLine(team,w){const v=VEGAS[w];if(!v||!team)return'';const g=v.games.find(g=>g.fav===team||g.dog===team);
+ if(!g)return byes(w).has(team)?'bye':'—';const opp=g.fav===team?g.dog:g.fav,sp=g.fav===team?g.spread:-g.spread,at=g.home===team?'vs':'@';
+ return `${at} ${opp} ${sp>0?'+':''}${sp} · O/U ${g.total}`}
+async function loadWeek(w){S.week=w;$('#status').textContent='Loading week '+w+'…';
+ const trend=await j('/players/nfl/trending/add?lookback_hours=24&limit=60').catch(()=>[]);
+ await Promise.all(S.leagues.map(async L=>{const[ros,users,mus]=await Promise.all([j(`/league/${L.league_id}/rosters`),j(`/league/${L.league_id}/users`),j(`/league/${L.league_id}/matchups/${w}`).catch(()=>[])]);
+  const um=Object.fromEntries(users.map(u=>[u.user_id,u])),mine=ros.find(r=>r.owner_id===USER||(r.co_owners||[]).includes(USER));
+  const rostered=new Set(ros.flatMap(r=>r.players||[]));const myM=mus.find(m=>m.roster_id===mine?.roster_id);
+  const oppM=myM&&mus.find(m=>m.matchup_id===myM.matchup_id&&m.roster_id!==myM.roster_id);const oppR=oppM&&ros.find(r=>r.roster_id===oppM.roster_id);
+  const ou=oppR&&um[oppR.owner_id];
+  S.data[L.league_id]={L,mine,myM,oppM,oppName:ou?(ou.metadata?.team_name||ou.display_name):'—',
+   avail:trend.filter(t=>!rostered.has(t.player_id)).slice(0,8)}}));
+ render();$('#status').textContent='Updated '+new Date().toLocaleTimeString()}
+// Current/future weeks: live roster lineup; past weeks: lineup as locked in the matchup.
+function SL(d){return (S.week>=(S.state.week||1)?d.mine.starters:d.myM?.starters)||d.mine.starters||[]}
+function slotsOf(L){return(L.roster_positions||[]).filter(s=>s!=='BN'&&s!=='IR'&&s!=='TAXI')}
+function render(){const w=S.week,issues=[];
+ $('#tabs').innerHTML=S.leagues.map((L,i)=>`<button class="${i===S.sel?'on':''}" data-i="${i}">${esc(L.name)}</button>`).join('');
+ $('#lgcards').innerHTML=S.leagues.map((L,i)=>{const d=S.data[L.league_id];if(!d||!d.mine)return'';const s=d.mine.settings,my=d.myM?.points??0,op=d.oppM?.points??0;
+  const starters=SL(d),slots=slotsOf(L);
+  starters.forEach((id,k)=>{const p=P(id),x=bad(p,w);if(x&&x.cls!=='q')issues.push({p,x,L,slot:slots[k]})});
+  return `<div class="card lg" data-i="${i}"><h2>${esc(L.name)}</h2><div class="mut">Record ${s.wins}-${s.losses}${s.ties?'-'+s.ties:''} · ${L.total_rosters} teams · PF ${s.fpts}</div>
+  <div class="score" style="margin-top:8px"><div class="${my>op?'win':my<op?'lose':''}">${my.toFixed(2)}<small>You</small></div><div class="mut" style="font-size:13px">vs</div><div style="text-align:right">${op.toFixed(2)}<small>${esc(d.oppName)}</small></div></div></div>`}).join('');
+ // attention summary grouped by player
+ const g={};issues.forEach(o=>{const k=o.p?o.p.id+o.x.txt:'empty'+o.L.league_id+o.slot;(g[k]=g[k]||{...o,ls:[]}).ls.push(o.L.name)});
+ const arr=Object.values(g).sort((a,b)=>b.ls.length-a.ls.length);
+ $('#attn').innerHTML=arr.length?'<ul>'+arr.map(o=>`<li><b>${o.p?esc(o.p.n):'Empty '+esc(o.slot)+' slot'}</b> ${o.p?`<span class="pos ${o.p.pos}">${o.p.pos}</span> ${esc(o.p.t||'')}`:''} <span class="b ${o.x.cls}">${esc(o.x.txt)}</span> — starting in ${o.ls.length===S.leagues.length?'<b>all '+o.ls.length+' leagues</b>':esc(o.ls.join(', '))}</li>`).join('')+'</ul>':'<span class="win">All starters look good for week '+w+'.</span>';
+ // detail
+ const L=S.leagues[S.sel],d=L&&S.data[L.league_id];if(!d||!d.mine){$('#detail').innerHTML='<div class="card">No roster found.</div>';return}
+ const starters=SL(d),slots=slotsOf(L),bench=(d.mine.players||[]).filter(p=>!starters.includes(p)&&!(d.mine.taxi||[]).includes(p)&&!(d.mine.reserve||[]).includes(p));
+ const pts=d.myM?.players_points||{};
+ const row=(id,slot)=>{const p=P(id);return`<tr><td><span class="pos ${esc(slot||p?.pos)}">${esc(slot||p?.pos||'')}</span></td><td>${p?esc(p.n):'<i class="mut">empty</i>'}${badges(p,w)}<div class="mut" style="font-size:11px">${p?esc((p.pos||'')+' · '+(p.t||'FA')):''} ${p?esc(gameLine(p.t,w)):''}</div></td><td style="text-align:right">${p&&pts[id]!=null?pts[id].toFixed(1):''}</td></tr>`};
+ const sec=(t,ids)=>ids.length?`<h3>${t}</h3><table>${ids.map(id=>row(id)).join('')}</table>`:'';
+ $('#detail').innerHTML=`<div class="grid"><div class="card"><h2>${esc(L.name)} — Week ${w} lineup</h2><table><tr><th>Slot</th><th>Player</th><th style="text-align:right">Pts</th></tr>${starters.map((id,k)=>row(id,slots[k])).join('')}</table>
+ ${sec('Bench',bench)}${sec('IR',d.mine.reserve||[])}${sec('Taxi',d.mine.taxi||[])}</div>
+ <div class="card"><h2>📈 Trending adds available</h2><table><tr><th></th><th>Player</th><th style="text-align:right">Adds 24h</th></tr>${d.avail.map(t=>{const p=P(t.player_id);return`<tr><td><span class="pos ${p?.pos}">${p?.pos||''}</span></td><td>${esc(p?.n)}${badges(p,w)}<div class="mut" style="font-size:11px">${esc(p?.t||'FA')} ${esc(gameLine(p?.t,w))}</div></td><td style="text-align:right">${t.count.toLocaleString()}</td></tr>`}).join('')||'<tr><td colspan=3 class="mut">None</td></tr>'}</table></div></div>`;
+ // vegas
+ const v=VEGAS[w];if(!v){$('#vegas').innerHTML=`<p class="mut">No lines loaded for week ${w}. Add them to the <code>vegas-data</code> JSON in this file.</p>`;return}
+ const mineIds=new Set(S.leagues.flatMap(L=>S.data[L.league_id]?.mine?.players||[]));const byTeam={};
+ mineIds.forEach(id=>{const p=P(id);if(p&&['QB','RB','WR','TE','K'].includes(p.pos)&&p.t)(byTeam[p.t]=byTeam[p.t]||new Set).add(p.n)});
+ $('#vegas').innerHTML=`<p class="mut">Week ${w} spreads/totals · source <a style="color:var(--acc)" href="${v.url}" target="_blank">${esc(v.source)}</a> · Byes: ${[...byes(w)].join(', ')||'—'}</p>
+ <table><tr><th>Game</th><th>Spread</th><th>O/U</th><th>Your players</th></tr>${v.games.slice().sort((a,b)=>b.total-a.total).map(g=>{const away=g.home===g.fav?g.dog:g.fav;const ps=[...(byTeam[g.fav]||[]),...(byTeam[g.dog]||[])];
+ return`<tr><td>${away} @ ${g.home}</td><td>${g.fav} ${g.spread}</td><td>${g.total}</td><td class="mut">${esc(ps.join(', '))||'—'}</td></tr>`}).join('')}</table>
+ <h3>Player props</h3><p class="mut">${v.props?'':'Not posted yet — sportsbooks usually post week props Tue/Wed.'}</p>`}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-i]');if(t){S.sel=+t.dataset.i;render();$('#detail').scrollIntoView({behavior:'smooth'})}});
+$('#wk').onchange=e=>loadWeek(+e.target.value);$('#refresh').onclick=()=>loadWeek(S.week);
+(async()=>{try{S.state=await j('/state/nfl');const season=S.state.league_season||S.state.season;
+ [S.players,S.leagues]=await Promise.all([players(),j(`/user/${USER}/leagues/nfl/${season}`)]);
+ const cur=+new URLSearchParams(location.search).get("week")||Math.max(1,S.state.display_week||S.state.week||1);$('#wk').innerHTML=Array.from({length:18},(_,i)=>`<option ${i+1===cur?'selected':''}>${i+1}</option>`).join('');
+ await loadWeek(cur)}catch(e){$('#status').textContent='Error: '+e.message;console.error(e)}})();
+</script></body></html>
