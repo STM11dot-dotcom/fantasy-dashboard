@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sean's Fantasy Dashboard</title>
+<title>STM Fantasy Dashboard</title>
 <style>
 :root{--bg:#0d1117;--card:#161b22;--line:#30363d;--tx:#e6edf3;--mut:#8b949e;--acc:#58a6ff;--red:#f85149;--org:#d29922;--grn:#3fb950;--pur:#a371f7}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -20,7 +20,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:5px 4px;border-bottom:1p
 .lg{cursor:pointer}.lg:hover{border-color:var(--acc)}#status{color:var(--mut);font-size:12px}
 @media(max-width:600px){.grid{grid-template-columns:1fr}td,th{font-size:12px}header{padding:10px}}
 </style></head><body>
-<header><h1>🏈 Sean's Fantasy Dashboard</h1><div style="display:flex;gap:8px;align-items:center"><label class="mut">Week <select id="wk"></select></label><button id="refresh">Refresh</button><span id="status">Loading…</span></div></header>
+<header><h1>🏈 STM Fantasy Dashboard</h1><div style="display:flex;gap:8px;align-items:center"><label class="mut">Week <select id="wk"></select></label><button id="refresh">Refresh</button><span id="status">Loading…</span></div></header>
 <main>
 <section class="card"><h2>⚠️ Needs attention</h2><div id="attn" class="mut">Loading…</div></section>
 <section class="grid" id="lgcards"></section>
